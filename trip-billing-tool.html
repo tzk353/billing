@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>車趟請款統計</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Microsoft JhengHei',system-ui,sans-serif;background:#f0f2f5;color:#1a1a1a;font-size:14px;min-height:100vh}
+.top{background:#1e40af;padding:14px 20px;display:flex;align-items:center;gap:10px}
+.top h1{font-size:16px;font-weight:600;color:#fff}
+.top p{font-size:12px;color:#93c5fd;margin-top:1px}
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px}
+
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:20px;margin-bottom:14px}
+.section-label{font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px}
+
+/* Upload */
+.drop{border:2px dashed #d1d5db;border-radius:8px;padding:28px 20px;text-align:center;cursor:pointer;transition:.15s;position:relative}
+.drop:hover,.drop.over{border-color:#3b82f6;background:#eff6ff}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.file-ok{display:inline-flex;align-items:center;gap:6px;background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46;border-radius:20px;padding:4px 14px;font-size:12px;margin-top:10px}
+.msg{font-size:12px;color:#6b7280;margin-top:8px}
+
+/* Tabs */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.tab{padding:5px 14px;border:1px solid #e5e7eb;border-radius:20px;background:#f9fafb;font-size:12px;cursor:pointer;color:#555}
+.tab.on{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8;font-weight:600}
+
+/* Header row */
+.hrow-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+.hrow{padding:5px 12px;border:1px solid #e5e7eb;border-radius:20px;background:#f9fafb;font-size:12px;cursor:pointer;color:#555}
+.hrow.on{border-color:#7c3aed;background:#f5f3ff;color:#5b21b6;font-weight:600}
+.hint{font-size:11px;color:#9ca3af;margin-bottom:8px}
+
+/* Column chips */
+.col-grid{display:flex;flex-wrap:wrap;gap:6px}
+.col-chip{padding:6px 12px;border:1px solid #e5e7eb;border-radius:20px;background:#f9fafb;font-size:12px;cursor:pointer;color:#374151;transition:.12s;user-select:none}
+.col-chip:hover{border-color:#93c5fd}
+.col-chip.amt{border-color:#10b981;background:#ecfdf5;color:#065f46;font-weight:600}
+.col-chip.amt::before{content:'💰 '}
+.legend{font-size:11px;color:#9ca3af;margin-top:8px}
+
+/* Keywords */
+.kw-box{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fafafa;min-height:42px;cursor:text;align-items:center}
+.kw-box input{border:none;outline:none;background:transparent;font-size:13px;min-width:160px;flex:1;color:#1a1a1a}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#dbeafe;border:1px solid #93c5fd;border-radius:20px;font-size:12px;color:#1e40af}
+.tag button{background:none;border:none;cursor:pointer;color:#93c5fd;font-size:14px;line-height:1;padding:0 1px}
+.tag button:hover{color:#ef4444}
+
+/* Buttons */
+.btn{padding:9px 18px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:.12s}
+.btn-blue{background:#2563eb;color:#fff}
+.btn-blue:hover{background:#1d4ed8}
+.btn-ghost{background:#fff;border:1px solid #d1d5db;color:#374151}
+.btn-ghost:hover{background:#f9fafb}
+.btn-green{background:#fff;border:1px solid #10b981;color:#065f46}
+.btn-green:hover{background:#ecfdf5}
+.btn-amber{background:#fff;border:1px solid #f59e0b;color:#92400e}
+.btn-amber:hover{background:#fffbeb}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+/* Results */
+.res-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.res-title{font-size:15px;font-weight:700}
+.kw-tag{display:inline-block;padding:2px 10px;background:#dbeafe;border-radius:20px;font-size:12px;color:#1e40af;margin-left:6px}
+
+/* Per-person block */
+.person-block{border:1px solid #e5e7eb;border-radius:8px;margin-bottom:12px;overflow:hidden}
+.person-head{background:#f8fafc;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb}
+.person-name{font-weight:700;font-size:14px;color:#1e40af}
+.person-cnt{font-size:11px;color:#9ca3af;margin-left:6px}
+.amt-pills{display:flex;flex-wrap:wrap;gap:6px}
+.amt-pill{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.amt-pill-main{background:#dcfce7;color:#14532d}
+.amt-pill-sub{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+.amt-pill-total{background:#1e40af;color:#fff}
+
+/* Table */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:7px 10px;text-align:left;background:#f9fafb;border-bottom:1px solid #e5e7eb;color:#6b7280;font-weight:600;white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid #f3f4f6;color:#374151}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+.td-amt{text-align:right;font-weight:600;color:#059669}
+.td-n{color:#d1d5db;font-size:11px}
+.td-total{text-align:right;font-weight:700;color:#1e40af;background:#f0f9ff!important}
+
+/* Grand summary bar */
+.grand-bar{background:#1e3a8a;color:#fff;border-radius:8px;padding:14px 18px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.grand-bar .gl{font-size:12px;color:#93c5fd;margin-bottom:2px}
+.grand-bar .gv{font-size:18px;font-weight:700}
+.grand-sep{width:1px;background:#3b5fc0;align-self:stretch}
+
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div style="font-size:22px">🚗</div>
+  <div>
+    <h1>車趟請款統計</h1>
+    <p>上傳檔案 → 選金額欄 → 輸入司機名或單號 → 各欄分開統計</p>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ① 上傳 -->
+<div class="card">
+  <div class="section-label">① 上傳資料檔案</div>
+  <div class="drop" id="drop">
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.docx,.txt">
+    <div style="font-size:30px;margin-bottom:8px">📂</div>
+    <div style="font-weight:600;margin-bottom:4px">點擊或拖曳上傳</div>
+    <div style="font-size:12px;color:#888">支援 Excel · CSV · Word · 純文字</div>
+    <div id="fileOk" class="file-ok hidden">✅ <span id="fileName"></span></div>
+  </div>
+  <div id="parseMsg" class="msg"></div>
+</div>
+
+<!-- ② 設定 -->
+<div id="setupCard" class="card hidden">
+
+  <!-- 工作表 -->
+  <div id="sheetSec" class="hidden">
+    <div class="section-label">選擇工作表</div>
+    <div class="tabs" id="sheetTabs"></div>
+  </div>
+
+  <!-- 標題列 -->
+  <div class="section-label">標題在第幾列？</div>
+  <div class="hrow-list" id="hrowList"></div>
+  <div class="hint">點選看起來像欄位名稱的那列</div>
+
+  <!-- 金額欄（多選） -->
+  <div class="section-label" style="margin-top:14px">② 勾選金額欄（可多選）</div>
+  <div class="col-grid" id="colGrid"></div>
+  <div class="legend">點一下 = 選為金額欄（綠色），再點一下 = 取消</div>
+</div>
+
+<!-- ③ 關鍵字 -->
+<div id="kwCard" class="card hidden">
+  <div class="section-label">③ 輸入司機名稱或預約單號</div>
+  <div class="hint" style="margin-bottom:8px">按 Enter 新增，可以多個；留空按「顯示全部」</div>
+  <div class="kw-box" id="kwBox" onclick="document.getElementById('kwInput').focus()">
+    <input id="kwInput" placeholder="例：王小明、TR20240601…">
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-blue" id="btnSearch">🔍 查詢統計</button>
+    <button class="btn btn-ghost" id="btnAll">顯示全部</button>
+    <button class="btn btn-ghost" id="btnClearKw">清除</button>
+  </div>
+</div>
+
+<!-- 結果 -->
+<div id="resCard" class="hidden">
+
+  <!-- 整體合計bar -->
+  <div id="grandBar" class="grand-bar"></div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div id="resTitle" style="font-size:15px;font-weight:700"></div>
+      <div class="btn-row" style="margin-top:0">
+        <button class="btn btn-green" id="btnXlsx">⬇ 匯出 Excel</button>
+        <button class="btn btn-amber" id="btnPrint">🖨 列印 / PDF</button>
+      </div>
+    </div>
+
+    <!-- Per person blocks -->
+    <div id="personBlocks" style="padding:14px 18px"></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+let rawSheets={}, sheetNames=[], curSheet=null;
+let headerIdx=0, allRows=[], allCols=[];
+let amountCols=[], keywords=[], filteredRows=[];
+
+// ── Upload ──
+const drop=document.getElementById('drop');
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over')});
+drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');handleFile(e.dataTransfer.files[0])});
+document.getElementById('fileInput').addEventListener('change',e=>handleFile(e.target.files[0]));
+
+async function handleFile(file){
+  if(!file)return;
+  document.getElementById('fileName').textContent=file.name;
+  document.getElementById('fileOk').classList.remove('hidden');
+  setMsg('解析中…');
+  const ext=file.name.split('.').pop().toLowerCase();
+  try{
+    if(ext==='xlsx'||ext==='xls') await parseXlsx(file);
+    else if(ext==='csv') await parseCsv(file);
+    else if(ext==='docx') await parseDocx(file);
+    else if(ext==='txt') await parseTxt(file);
+    else{setMsg('不支援此格式');return}
+    setMsg('✅ 讀取完成，請選擇標題列和金額欄');
+    document.getElementById('setupCard').classList.remove('hidden');
+    document.getElementById('kwCard').classList.remove('hidden');
+    document.getElementById('resCard').classList.add('hidden');
+  }catch(e){setMsg('解析失敗：'+e.message);console.error(e)}
+}
+function setMsg(t){document.getElementById('parseMsg').textContent=t}
+
+// ── Parsers ──
+async function parseXlsx(file){
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:'array'});
+  sheetNames=wb.SheetNames; rawSheets={};
+  sheetNames.forEach(n=>{rawSheets[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:''})});
+  curSheet=sheetNames[0]; loadSheet(curSheet); showSheetTabs();
+}
+async function parseCsv(file){
+  const t=await file.text();
+  const rows=t.split('\n').map(l=>l.split(',').map(c=>c.replace(/^"|"$/g,'').trim()));
+  sheetNames=['CSV']; rawSheets={CSV:rows}; curSheet='CSV'; loadSheet('CSV'); showSheetTabs();
+}
+async function parseDocx(file){
+  const buf=await file.arrayBuffer();
+  const res=await mammoth.extractRawText({arrayBuffer:buf});
+  const rows=res.value.split('\n').map(l=>l.trim()).filter(l=>l)
+    .map(l=>l.includes('\t')?l.split('\t'):l.split(',').length>2?l.split(','):[l]);
+  sheetNames=['Word']; rawSheets={Word:rows}; curSheet='Word'; loadSheet('Word'); showSheetTabs();
+}
+async function parseTxt(file){
+  const t=await file.text();
+  const rows=t.split('\n').map(l=>l.trim()).filter(l=>l)
+    .map(l=>l.includes('\t')?l.split('\t'):l.split(',').length>2?l.split(','):[l]);
+  sheetNames=['TXT']; rawSheets={TXT:rows}; curSheet='TXT'; loadSheet('TXT'); showSheetTabs();
+}
+
+function showSheetTabs(){
+  const sec=document.getElementById('sheetSec');
+  const tabs=document.getElementById('sheetTabs');
+  if(sheetNames.length<=1){sec.classList.add('hidden');return}
+  sec.classList.remove('hidden'); tabs.innerHTML='';
+  sheetNames.forEach(n=>{
+    const b=document.createElement('button');
+    b.className='tab'+(n===curSheet?' on':'');
+    b.textContent=n;
+    b.onclick=()=>{curSheet=n;loadSheet(n);tabs.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));b.classList.add('on')};
+    tabs.appendChild(b);
+  });
+}
+
+function loadSheet(name){
+  amountCols=[];
+  showHrowPicker(rawSheets[name]||[]);
+}
+
+function showHrowPicker(rows){
+  const list=document.getElementById('hrowList');
+  list.innerHTML=''; headerIdx=0;
+  rows.slice(0,10).forEach((row,i)=>{
+    const b=document.createElement('button');
+    b.className='hrow'+(i===0?' on':'');
+    const preview=row.slice(0,6).filter(c=>String(c).trim()).join(' | ')||'(空)';
+    b.innerHTML=`<strong>第${i+1}列</strong> <span style="color:#bbb;font-size:11px;margin-left:4px">${preview}</span>`;
+    b.onclick=()=>{
+      list.querySelectorAll('.hrow').forEach(e=>e.classList.remove('on'));
+      b.classList.add('on'); headerIdx=i; amountCols=[]; buildCols();
+    };
+    list.appendChild(b);
+  });
+  buildCols();
+}
+
+function buildCols(){
+  const rows=rawSheets[curSheet]||[];
+  const header=rows[headerIdx]||[];
+  allCols=header.map((c,i)=>({idx:i,label:String(c).trim()||`欄${i+1}`}));
+  allRows=rows.slice(headerIdx+1)
+    .filter(r=>r.some(c=>c!==''&&c!==null&&c!==undefined))
+    .map(r=>{const o={};allCols.forEach(col=>{o[col.label]=r[col.idx]??''});return o});
+
+  const grid=document.getElementById('colGrid');
+  grid.innerHTML='';
+  allCols.forEach(col=>{
+    const b=document.createElement('button');
+    b.className='col-chip';
+    b.textContent=col.label;
+    b.dataset.col=col.label;
+    b.onclick=()=>{
+      if(amountCols.includes(col.label)){
+        amountCols=amountCols.filter(c=>c!==col.label);
+        b.classList.remove('amt');
+      } else {
+        amountCols.push(col.label);
+        b.classList.add('amt');
+      }
+    };
+    grid.appendChild(b);
+  });
+}
+
+// ── Keywords ──
+const kwInput=document.getElementById('kwInput');
+kwInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();addKw(kwInput.value.trim());kwInput.value=''}
+});
+function addKw(kw){if(!kw||keywords.includes(kw))return;keywords.push(kw);renderTags()}
+function removeKw(kw){keywords=keywords.filter(k=>k!==kw);renderTags()}
+function renderTags(){
+  document.querySelectorAll('.tag').forEach(t=>t.remove());
+  keywords.forEach(kw=>{
+    const t=document.createElement('span'); t.className='tag';
+    const safe=kw.replace(/'/g,"\\'");
+    t.innerHTML=`${kw} <button onclick="removeKw('${safe}')">×</button>`;
+    document.getElementById('kwBox').insertBefore(t,kwInput);
+  });
+}
+document.getElementById('btnSearch').onclick=()=>{
+  const p=kwInput.value.trim();if(p){addKw(p);kwInput.value=''}
+  if(!amountCols.length){alert('請先勾選至少一個金額欄（綠色）');return}
+  doSearch(false);
+};
+document.getElementById('btnAll').onclick=()=>{
+  if(!amountCols.length){alert('請先勾選至少一個金額欄（綠色）');return}
+  doSearch(true);
+};
+document.getElementById('btnClearKw').onclick=()=>{keywords=[];renderTags()};
+
+// ── Search ──
+function toNum(v){return parseFloat(String(v??'').replace(/,/g,''))||0}
+function fmt(n){return Number(n).toLocaleString('zh-TW',{minimumFractionDigits:0,maximumFractionDigits:0})}
+
+function doSearch(all){
+  const kws=all?[]:keywords.map(k=>k.toLowerCase());
+  filteredRows=kws.length===0 ? allRows :
+    allRows.filter(row=>Object.values(row).some(v=>kws.some(kw=>String(v).toLowerCase().includes(kw))));
+  renderResults(kws);
+}
+
+function groupRows(kws){
+  const groups={};
+  filteredRows.forEach(row=>{
+    let label='全部';
+    if(kws.length>0){
+      const found=kws.find(kw=>Object.values(row).some(v=>String(v).toLowerCase().includes(kw)));
+      if(found) label=keywords.find(k=>k.toLowerCase()===found)||found;
+    }
+    if(!groups[label]) groups[label]=[];
+    groups[label].push(row);
+  });
+  return groups;
+}
+
+function renderResults(kws){
+  const resCard=document.getElementById('resCard');
+  resCard.classList.remove('hidden');
+
+  const groups=groupRows(kws);
+  const cols=allCols.map(c=>c.label);
+
+  // Grand totals per amount col
+  const grandTotals={};
+  amountCols.forEach(ac=>{
+    grandTotals[ac]=filteredRows.reduce((s,r)=>s+toNum(r[ac]),0);
+  });
+  const grandOverall=Object.values(grandTotals).reduce((s,v)=>s+v,0);
+
+  // Grand bar
+  const bar=document.getElementById('grandBar');
+  bar.innerHTML='';
+  const addStat=(label,val)=>{
+    const d=document.createElement('div');
+    d.innerHTML=`<div class="gl">${label}</div><div class="gv">${val}</div>`;
+    bar.appendChild(d);
+  };
+  addStat('篩選結果',`${filteredRows.length} 筆`);
+  if(amountCols.length>1){
+    const sep=document.createElement('div'); sep.className='grand-sep'; bar.appendChild(sep);
+    amountCols.forEach(ac=>{
+      addStat(ac,`$${fmt(grandTotals[ac])}`);
+    });
+    const sep2=document.createElement('div'); sep2.className='grand-sep'; bar.appendChild(sep2);
+    addStat('總合計',`$${fmt(grandOverall)}`);
+  } else if(amountCols.length===1){
+    const sep=document.createElement('div'); sep.className='grand-sep'; bar.appendChild(sep);
+    addStat(amountCols[0]+' 合計',`$${fmt(grandOverall)}`);
+  }
+
+  // Title
+  const kwLabel=kws.length===0?'全部資料':`【${keywords.join('、')}】`;
+  document.getElementById('resTitle').textContent=`明細清單 ${kwLabel}`;
+
+  // Per person blocks
+  const container=document.getElementById('personBlocks');
+  container.innerHTML='';
+
+  Object.entries(groups).forEach(([label,rows])=>{
+    const block=document.createElement('div');
+    block.className='person-block';
+
+    // Header with per-col totals
+    const colTotals={};
+    amountCols.forEach(ac=>{colTotals[ac]=rows.reduce((s,r)=>s+toNum(r[ac]),0)});
+    const rowTotal=Object.values(colTotals).reduce((s,v)=>s+v,0);
+
+    let pillsHtml='';
+    amountCols.forEach(ac=>{
+      pillsHtml+=`<span class="amt-pill amt-pill-sub">${ac}：$${fmt(colTotals[ac])}</span>`;
+    });
+    if(amountCols.length>1){
+      pillsHtml+=`<span class="amt-pill amt-pill-total">合計 $${fmt(rowTotal)}</span>`;
+    }
+
+    block.innerHTML=`
+      <div class="person-head">
+        <div><span class="person-name">${label}</span><span class="person-cnt">${rows.length} 筆</span></div>
+        <div class="amt-pills">${pillsHtml}</div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>#</th>
+            ${cols.map(c=>`<th>${c}</th>`).join('')}
+            ${amountCols.length>1?'<th style="text-align:right;color:#1e40af">小計</th>':''}
+          </tr></thead>
+          <tbody>
+            ${rows.map((row,i)=>{
+              const rowSum=amountCols.reduce((s,ac)=>s+toNum(row[ac]),0);
+              return `<tr>
+                <td class="td-n">${i+1}</td>
+                ${cols.map(c=>{
+                  const v=row[c]??'';
+                  if(amountCols.includes(c)) return `<td class="td-amt">${fmt(toNum(v))}</td>`;
+                  return `<td>${v}</td>`;
+                }).join('')}
+                ${amountCols.length>1?`<td class="td-total">$${fmt(rowSum)}</td>`:''}
+              </tr>`;
+            }).join('')}
+            <tr style="background:#f8fafc;font-weight:700">
+              <td colspan="${cols.length+1}" style="text-align:right;padding:7px 10px;font-size:12px;color:#6b7280">
+                ${amountCols.map(ac=>`${ac}：$${fmt(colTotals[ac])}`).join('　')}
+                ${amountCols.length>1?`　<span style="color:#1e40af">總計：$${fmt(rowTotal)}</span>`:''}
+              </td>
+              ${amountCols.length>1?`<td class="td-total">$${fmt(rowTotal)}</td>`:''}
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+    container.appendChild(block);
+  });
+
+  resCard.scrollIntoView({behavior:'smooth'});
+}
+
+// ── Export Excel ──
+document.getElementById('btnXlsx').onclick=()=>{
+  if(!filteredRows.length)return;
+  const kws=keywords.map(k=>k.toLowerCase());
+  const groups=groupRows(kws);
+  const cols=allCols.map(c=>c.label);
+  const wb=XLSX.utils.book_new();
+
+  // 彙總表
+  const sumRows=[['名稱','筆數',...amountCols,...(amountCols.length>1?['合計']:[])]];
+  let grandCols=amountCols.map(()=>0), grandTotal=0;
+  Object.entries(groups).forEach(([label,rows])=>{
+    const colTotals=amountCols.map(ac=>rows.reduce((s,r)=>s+toNum(r[ac]),0));
+    const rowTotal=colTotals.reduce((s,v)=>s+v,0);
+    colTotals.forEach((v,i)=>{grandCols[i]+=v}); grandTotal+=rowTotal;
+    sumRows.push([label,rows.length,...colTotals,...(amountCols.length>1?[rowTotal]:[])]);
+  });
+  sumRows.push(['合計',filteredRows.length,...grandCols,...(amountCols.length>1?[grandTotal]:[])]);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sumRows),'彙總');
+
+  // 明細表（加小計欄）
+  const detHead=[...cols,...(amountCols.length>1?['小計']:[])];
+  const detRows=[detHead,...filteredRows.map(r=>{
+    const rowSum=amountCols.reduce((s,ac)=>s+toNum(r[ac]),0);
+    return [...cols.map(c=>r[c]??''),...(amountCols.length>1?[rowSum]:[])];
+  })];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detRows),'明細');
+
+  // 各人分頁
+  Object.entries(groups).forEach(([label,rows])=>{
+    const sheetRows=[detHead,...rows.map(r=>{
+      const rowSum=amountCols.reduce((s,ac)=>s+toNum(r[ac]),0);
+      return [...cols.map(c=>r[c]??''),...(amountCols.length>1?[rowSum]:[])];
+    })];
+    // 合計列
+    const totRow=new Array(cols.length).fill('');
+    totRow[cols.length-1]='合計';
+    amountCols.forEach((ac,i)=>{
+      const idx=cols.indexOf(ac);
+      if(idx>=0) totRow[idx]=rows.reduce((s,r)=>s+toNum(r[ac]),0);
+    });
+    if(amountCols.length>1) totRow.push(amountCols.reduce((s,ac)=>s+rows.reduce((ss,r)=>ss+toNum(r[ac]),0),0));
+    sheetRows.push(totRow);
+    const safe=label.replace(/[\\/:*?[\]]/g,'_').substring(0,28);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sheetRows),safe);
+  });
+
+  const d=new Date();
+  const stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb,`請款統計_${stamp}.xlsx`);
+};
+
+// ── Print ──
+document.getElementById('btnPrint').onclick=()=>{
+  const kws=keywords.map(k=>k.toLowerCase());
+  const groups=groupRows(kws);
+  const cols=allCols.map(c=>c.label);
+  const d=new Date();
+  const dateStr=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+
+  let grandCols=amountCols.map(()=>0), grandTotal=0;
+  let html=`<html><head><meta charset="UTF-8"><style>
+    body{font-family:'Microsoft JhengHei',Arial,sans-serif;font-size:11px;padding:20px;color:#111}
+    h1{font-size:16px;margin-bottom:3px}
+    .sub{color:#888;font-size:10px;margin-bottom:16px}
+    .sec{margin-bottom:18px;page-break-inside:avoid}
+    .sec-head{background:#1e3a8a;color:#fff;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;border-radius:4px 4px 0 0}
+    .pills{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{background:rgba(255,255,255,.2);padding:2px 8px;border-radius:10px;font-size:11px}
+    table{width:100%;border-collapse:collapse}
+    th{background:#f3f4f6;padding:5px 7px;text-align:left;border:1px solid #e5e7eb;color:#6b7280;font-size:10px}
+    td{padding:5px 7px;border:1px solid #e5e7eb;font-size:10px}
+    .ta{text-align:right;font-weight:600;color:#065f46}
+    .tt{text-align:right;font-weight:700;color:#1e40af}
+    .foot td{background:#f0f9ff;font-weight:700}
+    .grand{margin-top:16px;padding:10px 14px;background:#1e3a8a;color:#fff;border-radius:6px;font-size:14px;font-weight:700}
+    .grand span{font-size:11px;opacity:.7;margin-right:8px}
+    @media print{@page{margin:1.5cm}}
+  </style></head><body>
+  <h1>🚗 車趟請款明細</h1>
+  <div class="sub">列印日期：${dateStr}　關鍵字：${keywords.join('、')||'全部'}　共 ${filteredRows.length} 筆　金額欄：${amountCols.join('、')}</div>`;
+
+  Object.entries(groups).forEach(([label,rows])=>{
+    const colTotals=amountCols.map(ac=>rows.reduce((s,r)=>s+toNum(r[ac]),0));
+    const rowTotal=colTotals.reduce((s,v)=>s+v,0);
+    colTotals.forEach((v,i)=>{grandCols[i]+=v}); grandTotal+=rowTotal;
+
+    const pillsHtml=amountCols.map((ac,i)=>`<span class="pill">${ac}：$${fmt(colTotals[i])}</span>`).join('')
+      +(amountCols.length>1?`<span class="pill" style="background:rgba(255,255,255,.35)">合計 $${fmt(rowTotal)}</span>`:'');
+
+    html+=`<div class="sec">
+      <div class="sec-head"><span>${label}（${rows.length}筆）</span><div class="pills">${pillsHtml}</div></div>
+      <table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}${amountCols.length>1?'<th style="text-align:right">小計</th>':''}</tr></thead><tbody>`;
+    rows.forEach(row=>{
+      const rs=amountCols.reduce((s,ac)=>s+toNum(row[ac]),0);
+      html+=`<tr>${cols.map(c=>{
+        const v=row[c]??'';
+        if(amountCols.includes(c)) return `<td class="ta">$${fmt(toNum(v))}</td>`;
+        return `<td>${v}</td>`;
+      }).join('')}${amountCols.length>1?`<td class="tt">$${fmt(rs)}</td>`:''}</tr>`;
+    });
+    const footCells=cols.map((c,i)=>{
+      const ai=amountCols.indexOf(c);
+      if(ai>=0) return `<td class="ta">$${fmt(colTotals[ai])}</td>`;
+      if(i===0) return `<td style="font-weight:700">合計</td>`;
+      return '<td></td>';
+    }).join('');
+    html+=`<tr class="foot">${footCells}${amountCols.length>1?`<td class="tt">$${fmt(rowTotal)}</td>`:''}</tr>`;
+    html+=`</tbody></table></div>`;
+  });
+
+  const grandPills=amountCols.map((ac,i)=>`${ac}：$${fmt(grandCols[i])}`).join('　');
+  html+=`<div class="grand"><span>總合計</span>${grandPills}${amountCols.length>1?`　合計：$${fmt(grandTotal)}`:''}</div>`;
+  html+=`</body></html>`;
+
+  const w=window.open('','_blank');
+  w.document.write(html); w.document.close();
+  w.onload=()=>w.print();
+};
+</script>
+</body>
+</html>
